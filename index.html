@@ -6,73 +6,174 @@
     <title>Mini App Gateway</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
+            min-height: 100vh;
+            background-color: var(--tg-theme-bg-color, #1a1a2e);
+            color: var(--tg-theme-text-color, #ffffff);
             text-align: center;
         }
-        .container { padding: 20px; }
+        .container { padding: 24px; max-width: 400px; }
         .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 40px;
-            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.15);
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
-            border-left-color: var(--tg-theme-button-color, #3390ec);
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            border-top-color: var(--tg-theme-button-color, #3390ec);
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 24px;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #status {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        #detail {
+            font-size: 13px;
+            opacity: 0.6;
+            margin-top: 8px;
+            word-break: break-all;
+        }
+        .open-btn {
+            display: none;
+            margin: 20px auto 0;
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #fff);
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .open-btn:active { opacity: 0.8; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="spinner" id="spinner"></div>
         <h2 id="status">Loading App...</h2>
+        <p id="detail"></p>
+        <a id="openBtn" class="open-btn" target="_blank" rel="noopener">Open Website</a>
     </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            const tg = window.Telegram.WebApp;
-            // Expand the web app to full screen
-            tg.expand();
-            
-            // Get the startapp parameter from Telegram
-            const startParam = tg.initDataUnsafe?.start_param;
-            
-            if (startParam) {
+        (function() {
+            var statusEl  = document.getElementById('status');
+            var detailEl  = document.getElementById('detail');
+            var spinnerEl = document.getElementById('spinner');
+            var openBtn   = document.getElementById('openBtn');
+
+            function hideSpinner() {
+                spinnerEl.style.display = 'none';
+            }
+
+            function showError(msg, detail) {
+                hideSpinner();
+                statusEl.innerText = msg;
+                if (detail) detailEl.innerText = detail;
+            }
+
+            function decodeParam(param) {
+                // Convert URL-safe Base64 back to standard Base64
+                var b64 = param.replace(/-/g, '+').replace(/_/g, '/');
+                // Add padding
+                while (b64.length % 4 !== 0) {
+                    b64 += '=';
+                }
+                // Decode
+                return decodeURIComponent(escape(atob(b64)));
+            }
+
+            function openUrl(url) {
+                statusEl.innerText = 'Redirecting...';
+                detailEl.innerText = url;
+
+                // Method 1: Use Telegram's native openLink (works best inside TG)
                 try {
-                    // Base64Url decode logic (convert to regular Base64)
-                    let b64 = startParam.replace(/-/g, '+').replace(/_/g, '/');
-                    // Add padding if required
-                    while (b64.length % 4 !== 0) {
-                        b64 += '=';
-                    }
-                    
-                    // Decode string to get the original URL
-                    const decodedUrl = decodeURIComponent(escape(atob(b64)));
-                    
-                    if (decodedUrl.startsWith('http://') || decodedUrl.startsWith('https://')) {
-                        document.getElementById('status').innerText = 'Redirecting...';
-                        window.location.replace(decodedUrl);
-                    } else {
-                        throw new Error('Invalid URL protocol. Must be HTTP/HTTPS.');
+                    if (window.Telegram && window.Telegram.WebApp) {
+                        window.Telegram.WebApp.openLink(url);
+                        // Show fallback button after a short delay in case openLink didn't navigate
+                        setTimeout(function() {
+                            openBtn.href = url;
+                            openBtn.style.display = 'inline-block';
+                            statusEl.innerText = 'Tap below if not redirected';
+                        }, 2000);
+                        return;
                     }
                 } catch(e) {
-                    console.error(e);
-                    document.getElementById('spinner').style.display = 'none';
-                    document.getElementById('status').innerText = 'Invalid link parameter.';
+                    console.warn('TG openLink failed:', e);
+                }
+
+                // Method 2: Standard redirect (for non-TG browsers)
+                try {
+                    window.location.href = url;
+                } catch(e) {
+                    console.warn('location.href failed:', e);
+                }
+
+                // Method 3: Fallback button
+                setTimeout(function() {
+                    openBtn.href = url;
+                    openBtn.style.display = 'inline-block';
+                    statusEl.innerText = 'Tap below to open';
+                }, 1500);
+            }
+
+            // ─── Main logic ───────────────────────────────────────
+            var startParam = null;
+
+            // Try Telegram WebApp first
+            try {
+                if (window.Telegram && window.Telegram.WebApp) {
+                    var tg = window.Telegram.WebApp;
+                    tg.ready();
+                    tg.expand();
+                    startParam = tg.initDataUnsafe && tg.initDataUnsafe.start_param
+                              ? tg.initDataUnsafe.start_param
+                              : null;
+                }
+            } catch(e) {
+                console.warn('TG WebApp init error:', e);
+            }
+
+            // Fallback: check URL query param (for browser testing)
+            if (!startParam) {
+                var params = new URLSearchParams(window.location.search);
+                startParam = params.get('startapp') || params.get('start_param');
+            }
+
+            // Fallback: check URL hash
+            if (!startParam && window.location.hash) {
+                var hashParam = window.location.hash.replace('#startapp=', '');
+                if (hashParam && hashParam !== window.location.hash) {
+                    startParam = hashParam;
+                }
+            }
+
+            if (startParam) {
+                try {
+                    var decodedUrl = decodeParam(startParam);
+
+                    if (decodedUrl.indexOf('http://') === 0 || decodedUrl.indexOf('https://') === 0) {
+                        openUrl(decodedUrl);
+                    } else {
+                        showError('Invalid URL', 'URL must start with http:// or https://');
+                    }
+                } catch(e) {
+                    console.error('Decode error:', e);
+                    showError('Failed to decode link', e.message);
                 }
             } else {
-                document.getElementById('spinner').style.display = 'none';
-                document.getElementById('status').innerText = 'Welcome to the App. No link provided to load.';
+                showError('No link provided', 'This app was opened without a redirect URL.');
             }
-        });
+        })();
     </script>
 </body>
 </html>
