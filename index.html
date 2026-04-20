@@ -58,8 +58,7 @@
 <body>
     <div class="container">
         <div class="spinner" id="spinner"></div>
-        <h2 id="status">Loading App...</h2>
-        <p id="detail"></p>
+        <h2 id="status">Loading...</h2>
         <a id="openBtn" class="open-btn" target="_blank" rel="noopener">Open Website</a>
     </div>
 
@@ -74,10 +73,9 @@
                 spinnerEl.style.display = 'none';
             }
 
-            function showError(msg, detail) {
+            function showError(msg) {
                 hideSpinner();
                 statusEl.innerText = msg;
-                if (detail) detailEl.innerText = detail;
             }
 
             function decodeParam(param) {
@@ -92,19 +90,11 @@
             }
 
             function openUrl(url) {
-                statusEl.innerText = 'Redirecting...';
-                detailEl.innerText = url;
-
                 // Navigate inside the mini app webview (stays in Telegram)
                 try {
                     window.location.replace(url);
                 } catch(e) {
-                    console.warn('location.replace failed:', e);
-                    try {
-                        window.location.href = url;
-                    } catch(e2) {
-                        console.warn('location.href failed:', e2);
-                    }
+                    try { window.location.href = url; } catch(e2) {}
                 }
 
                 // Fallback button if redirect doesn't trigger
@@ -112,7 +102,7 @@
                     openBtn.href = url;
                     openBtn.style.display = 'inline-block';
                     statusEl.innerText = 'Tap below to open';
-                }, 2500);
+                }, 3000);
             }
 
             // ─── Main logic ───────────────────────────────────────
@@ -153,14 +143,14 @@
                     if (decodedUrl.indexOf('http://') === 0 || decodedUrl.indexOf('https://') === 0) {
                         openUrl(decodedUrl);
                     } else {
-                        showError('Invalid URL', 'URL must start with http:// or https://');
+                        showError('Invalid URL');
                     }
                 } catch(e) {
                     console.error('Decode error:', e);
-                    showError('Failed to decode link', e.message);
+                    showError('Failed to load');
                 }
             } else {
-                showError('No link provided', 'This app was opened without a redirect URL.');
+                showError('No link provided');
             }
         })();
     </script>
