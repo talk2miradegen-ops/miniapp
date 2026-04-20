@@ -95,35 +95,24 @@
                 statusEl.innerText = 'Redirecting...';
                 detailEl.innerText = url;
 
-                // Method 1: Use Telegram's native openLink (works best inside TG)
+                // Navigate inside the mini app webview (stays in Telegram)
                 try {
-                    if (window.Telegram && window.Telegram.WebApp) {
-                        window.Telegram.WebApp.openLink(url);
-                        // Show fallback button after a short delay in case openLink didn't navigate
-                        setTimeout(function() {
-                            openBtn.href = url;
-                            openBtn.style.display = 'inline-block';
-                            statusEl.innerText = 'Tap below if not redirected';
-                        }, 2000);
-                        return;
+                    window.location.replace(url);
+                } catch(e) {
+                    console.warn('location.replace failed:', e);
+                    try {
+                        window.location.href = url;
+                    } catch(e2) {
+                        console.warn('location.href failed:', e2);
                     }
-                } catch(e) {
-                    console.warn('TG openLink failed:', e);
                 }
 
-                // Method 2: Standard redirect (for non-TG browsers)
-                try {
-                    window.location.href = url;
-                } catch(e) {
-                    console.warn('location.href failed:', e);
-                }
-
-                // Method 3: Fallback button
+                // Fallback button if redirect doesn't trigger
                 setTimeout(function() {
                     openBtn.href = url;
                     openBtn.style.display = 'inline-block';
                     statusEl.innerText = 'Tap below to open';
-                }, 1500);
+                }, 2500);
             }
 
             // ─── Main logic ───────────────────────────────────────
